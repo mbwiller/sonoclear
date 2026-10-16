@@ -36,11 +36,35 @@ export async function endRecording(page: Page) {
 export async function recordSurgicalConsult(page: Page) {
   await nav(page, "Capture").click();
   await expect(page.getByRole("heading", { level: 1, name: "Record a visit" })).toBeVisible();
-  // The next appointment is pre-selected.
-  await expect(page.getByRole("radio", { name: "Breast surgeon" })).toHaveAttribute("aria-checked", "true");
+  // The next appointment fills the visit chip.
+  await expect(page.locator("#main").getByText("Surgical consult with Dr. Ellery").first()).toBeVisible();
   await expect(page.getByText(/Let your doctor know you.re recording\./)).toBeVisible();
   await startRecording(page);
   await page.waitForTimeout(1500);
   await endRecording(page);
   await expect(page.getByRole("heading", { level: 1, name: "Surgical consult with Dr. Ellery" })).toBeVisible();
+}
+
+/** Arranges the breast MRI through the simulated scheduling agent, ending back on the Arrange home. */
+/** Arranges a "book" task from the Arrange tab, choosing the first opening. */
+export async function arrangeTask(page: Page, title: string) {
+  await nav(page, "Arrange").click();
+  await expect(page.getByRole("heading", { level: 1, name: "Arrange" })).toBeVisible();
+  const card = page.locator("li").filter({ hasText: title }).filter({ visible: true });
+  await card.getByRole("button", { name: /Arrange this/ }).click();
+  const run = page.getByRole("dialog", { name: `Arranging: ${title}` });
+  await run.getByRole("radio").first().waitFor({ timeout: 30_000 });
+  await run.getByRole("radio").first().check();
+  await run.getByRole("button", { name: "Book this one" }).click();
+  await expect(run.getByText("Booked", { exact: true })).toBeVisible({ timeout: 30_000 });
+  await run.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(run).toHaveCount(0);
+}
+
+export async function arrangeMri(page: Page) {
+  await arrangeTask(page, "Schedule your breast MRI");
+}
+
+export async function arrangeGenetics(page: Page) {
+  await arrangeTask(page, "Book genetic counseling");
 }

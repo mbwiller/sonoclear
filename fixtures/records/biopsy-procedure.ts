@@ -135,6 +135,27 @@ Electronically signed: Hannah Whitfield, MD, ${procedureDate}, 10:06 AM`;
         "Will the marker clip show up on future imaging, and does it ever need to come out?",
         "Who should I call if I notice changes at the biopsy site?",
       ],
+      visuals: [
+        {
+          kind: "sequence",
+          title: "What happened",
+          steps: [
+            { label: "The area was numbed", detail: "Lidocaine, a numbing medicine, was given at the biopsy spot." },
+            { label: "Three samples were taken", detail: "With a hollow needle, guided by ultrasound." },
+            { label: "A tiny marker clip was left in place", detail: "It is made of titanium and marks the spot." },
+            { label: "A quick mammogram checked the clip", detail: "It showed the clip where the samples were taken." },
+            { label: "The samples went to the lab", detail: "Linden Health Pathology." },
+            { label: "Results in about 3 to 5 business days", detail: "They went to Dr. Raman." },
+          ],
+        },
+        {
+          kind: "locator",
+          side: "left",
+          clock: 2,
+          distanceCm: 6,
+          caption: "This is where the samples were taken. The marker clip stays there so the spot can be found again.",
+        },
+      ],
     },
   };
 }

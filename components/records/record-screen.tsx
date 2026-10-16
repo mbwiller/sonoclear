@@ -17,6 +17,7 @@ import { daysFromToday, formatShortDate, formatUpcoming } from "@/lib/dates";
 import type { MedicalRecord } from "@/lib/types";
 import { RECORD_TYPE_LABELS } from "@/lib/visit-types";
 import { PaperText, PdfOriginal, PhotoOriginal } from "./original-document";
+import { AtAGlance } from "./visuals";
 
 function NotFound() {
   return (
@@ -108,7 +109,15 @@ export function RecordScreen({ params }: { params: Promise<{ id: string }> }) {
 
       {recognized ? (
         <>
-          <Section id={`${prefix}-explanation`} title="In plain words" className="mt-10 lg:mt-12">
+          {explanation.visuals?.length ? (
+            <AtAGlance id={`${prefix}-glance`} visuals={explanation.visuals} className="mt-10 lg:mt-12" />
+          ) : null}
+
+          <Section
+            id={`${prefix}-explanation`}
+            title="In plain words"
+            className={explanation.visuals?.length ? "mt-12" : "mt-10 lg:mt-12"}
+          >
             <Prose text={explanation.summary} />
           </Section>
 

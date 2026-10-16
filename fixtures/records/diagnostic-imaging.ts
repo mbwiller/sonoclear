@@ -140,6 +140,57 @@ Electronically signed: ${examDate}, 11:48 AM`;
         "If I have a breast MRI, will it be compared with these images?",
         "Is anything else in either breast being watched?",
       ],
+      visuals: [
+        {
+          kind: "images",
+          title: "A closer look",
+          note: "The mass has an irregular shape, with thin lines reaching out into the tissue around it. Doctors call these edges spiculated.",
+          images: [
+            {
+              src: "/imaging/left-cc-spot.jpg",
+              alt: "Magnified mammogram of the left breast from above, with a ring around the mass",
+              caption: "Left breast, CC view, magnified",
+              width: 600,
+              height: 600,
+              mark: { x: 0.5, y: 0.5, r: 0.16, label: "The mass" },
+            },
+            {
+              src: "/imaging/left-mlo-spot.jpg",
+              alt: "Magnified mammogram of the left breast from the side, with a ring around the mass",
+              caption: "Left breast, MLO view, magnified",
+              width: 600,
+              height: 600,
+              mark: { x: 0.5, y: 0.5, r: 0.16, label: "The mass" },
+            },
+          ],
+        },
+        {
+          kind: "locator",
+          side: "left",
+          clock: 2,
+          distanceCm: 6,
+          sizeCm: 1.4,
+          caption:
+            "The mass is at 2 o'clock in your left breast, about 6 cm from the nipple, toward your armpit. The ring shows its size on the same scale.",
+        },
+        {
+          kind: "measure",
+          title: "Size on ultrasound",
+          cm: 1.4,
+          compare: "about the size of a blueberry",
+          caption: "It measured 1.4 cm at its widest, a little over half an inch.",
+        },
+        {
+          kind: "scale",
+          title: "BI-RADS category",
+          min: 0,
+          max: 6,
+          value: 5,
+          valueLabel: "BI-RADS 5",
+          marks: [0, 1, 2, 3, 4, 5, 6].map((n) => ({ value: n, label: String(n) })),
+          caption: "5 means very likely cancer; only a biopsy can say for certain.",
+        },
+      ],
     },
   };
 }

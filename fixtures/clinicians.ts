@@ -38,4 +38,5 @@ export const CLINICIANS: Clinician[] = [
 export const OFFICE_CONTACTS: { label: string; phone: string }[] = [
   { label: "Linden Health Imaging scheduling", phone: "(617) 555-0168" },
   { label: "Linden Health Cancer Genetics", phone: "(617) 555-0175" },
+  { label: "Linden Health Laboratory", phone: "(617) 555-0180" },
 ];

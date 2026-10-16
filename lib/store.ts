@@ -7,8 +7,8 @@
 import { create } from "zustand";
 import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
 import { getDemoToday, nowISO } from "./dates";
-import { isRecord, isTodoOverride, isVisit, shiftISO, shiftRecord, shiftVisit } from "./persisted";
-import type { ISODate, MedicalRecord, TodoId, Visit, VisitId } from "./types";
+import { cleanArrangement, isArrangement, isRecord, isTodoOverride, isVisit, shiftArrangement, withTaskTitle, shiftISO, shiftRecord, shiftVisit } from "./persisted";
+import type { Arrangement, ISODate, MedicalRecord, TodoId, Visit, VisitId } from "./types";
 
 export type ReplaySpeed = "realtime" | "demo" | "fast";
 
@@ -21,12 +21,14 @@ export interface TodoOverride {
   done: boolean;
   at: ISODate;
   resolvedByVisitId?: VisitId;
+  arrangedById?: string;
 }
 
 interface DemoData {
   todoOverrides: Record<TodoId, TodoOverride>;
   capturedVisits: Visit[];
   uploadedRecords: MedicalRecord[];
+  arrangements: Arrangement[];
   replaySpeed: ReplaySpeed;
   /**
    * The demo day these changes were saved against. On load, the patient's own items
@@ -47,6 +49,8 @@ interface DemoActions {
   /** Saves a captured visit and applies what it covered (resolved to-dos). */
   addCapturedVisit(visit: Visit): void;
   addUploadedRecord(record: MedicalRecord): void;
+  /** Saves an arrangement and applies what it fulfilled (resolved to-dos). */
+  addArrangement(arrangement: Arrangement): void;
   setReplaySpeed(speed: ReplaySpeed): void;
   resetDemo(): void;
 }
@@ -57,6 +61,7 @@ const INITIAL: DemoData = {
   todoOverrides: {},
   capturedVisits: [],
   uploadedRecords: [],
+  arrangements: [],
   replaySpeed: "demo",
   anchorDay: null,
 };
@@ -118,6 +123,9 @@ export function restore(saved: unknown): DemoData {
     todoOverrides: overrides,
     capturedVisits: (Array.isArray(s.capturedVisits) ? s.capturedVisits.filter(isVisit) : []).map((v) => shiftVisit(v, days)),
     uploadedRecords: (Array.isArray(s.uploadedRecords) ? s.uploadedRecords.filter(isRecord) : []).map((r) => shiftRecord(r, days)),
+    arrangements: (Array.isArray(s.arrangements) ? s.arrangements.map(withTaskTitle).filter(isArrangement) : []).map((a) =>
+      shiftArrangement(cleanArrangement(a), days),
+    ),
     replaySpeed: REPLAY_SPEEDS.includes(s.replaySpeed as ReplaySpeed) ? (s.replaySpeed as ReplaySpeed) : "demo",
     anchorDay: today.toISOString(),
   };
@@ -150,20 +158,33 @@ export const useDemoStore = create<DemoState>()(
           uploadedRecords: [...s.uploadedRecords.filter((r) => r.id !== record.id), record],
           anchorDay: today(),
         })),
+      addArrangement: (arrangement) =>
+        set((s) => {
+          const at = nowISO();
+          const resolved = Object.fromEntries(
+            (arrangement.outcome.resolvedTodoIds ?? []).map((id) => [id, { done: true, at, arrangedById: arrangement.id }]),
+          );
+          return {
+            arrangements: [...s.arrangements.filter((a) => a.id !== arrangement.id), arrangement],
+            todoOverrides: { ...s.todoOverrides, ...resolved },
+            anchorDay: today(),
+          };
+        }),
       setReplaySpeed: (replaySpeed) => set({ replaySpeed }),
       resetDemo: () => set((s) => ({ ...INITIAL, replaySpeed: s.replaySpeed, resetCount: s.resetCount + 1 })),
     }),
     {
       name: STORAGE_KEY,
-      // v2: validated restore and anchorDay. v1 data has the same shape and restores as-is.
-      version: 2,
+      // v2: validated restore and anchorDay. v3: arrangements. Older data restores as-is.
+      version: 3,
       storage: createJSONStorage(() => safeStorage),
       migrate: (persisted) => restore(persisted),
       merge: (persisted, current) => ({ ...current, ...restore(persisted) }),
-      partialize: ({ todoOverrides, capturedVisits, uploadedRecords, replaySpeed, anchorDay }) => ({
+      partialize: ({ todoOverrides, capturedVisits, uploadedRecords, arrangements, replaySpeed, anchorDay }) => ({
         todoOverrides,
         capturedVisits,
         uploadedRecords,
+        arrangements,
         replaySpeed,
         anchorDay,
       }),

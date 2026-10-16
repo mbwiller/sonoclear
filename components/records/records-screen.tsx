@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ChevronRight, Plus } from "lucide-react";
+import { ChevronRight, Dna, File, FileText, FlaskConical, Microscope, Plus } from "lucide-react";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Eyebrow, Page, PageTitle } from "@/components/ui/layout";
 import { useCare } from "@/lib/care";
@@ -22,13 +23,23 @@ const EMPTY_LINES: Record<RecordType, string> = {
   other: "Letters, referrals and anything else you add will be kept here.",
 };
 
+/** The same thin sage glyphs the Journey timeline uses, one per kind of record. */
+const TYPE_GLYPHS: Record<RecordType, ReactNode> = {
+  imaging: <FileText size={18} aria-hidden />,
+  pathology: <Microscope size={18} aria-hidden />,
+  labs: <FlaskConical size={18} aria-hidden />,
+  genetics: <Dna size={18} aria-hidden />,
+  other: <File size={18} aria-hidden />,
+};
+
 function RecordRow({ record }: { record: MedicalRecord }) {
   return (
     <li>
       <Link
         href={`/record/${record.id}`}
-        className="group flex min-h-[4.5rem] items-center gap-4 px-5 py-4 transition-colors duration-200 ease-calm hover:bg-paper focus-visible:outline-offset-[-2px] sm:px-6"
+        className="group flex min-h-[4.5rem] items-center gap-3 px-5 py-4 transition-colors duration-200 ease-calm hover:bg-paper focus-visible:outline-offset-[-2px] sm:px-6"
       >
+        <span className="mt-1 shrink-0 self-start text-sage">{TYPE_GLYPHS[record.type]}</span>
         <span className="min-w-0 flex-1">
           <span className="block text-body font-medium text-ink text-pretty">{record.title}</span>
           <span className="mt-0.5 block text-body-sm text-ink-muted tabular">
@@ -93,6 +104,7 @@ export function RecordsScreen() {
           </p>
         </div>
         <Button
+          variant="secondary"
           className="self-start lg:self-auto"
           icon={<Plus size={18} aria-hidden />}
           aria-haspopup="dialog"

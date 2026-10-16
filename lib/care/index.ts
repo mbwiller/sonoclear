@@ -11,6 +11,8 @@ import { getDemoToday } from "@/lib/dates";
 import { useDemoStore, type DemoState } from "@/lib/store";
 import type {
   Appointment,
+  Arrangement,
+  ArrangeTaskId,
   Clinician,
   MedicalRecord,
   PatientContext,
@@ -55,9 +57,13 @@ export interface CareView extends PatientContext {
   visitById: Map<VisitId, Visit>;
   recordById: Map<RecordId, MedicalRecord>;
   clinicianById: Map<string, Clinician>;
+  /** What Sonoclear has arranged, oldest first. */
+  arrangements: Arrangement[];
+  /** The latest arrangement for each task. */
+  arrangementByTaskId: Map<ArrangeTaskId, Arrangement>;
 }
 
-type Deltas = Pick<DemoState, "todoOverrides" | "capturedVisits" | "uploadedRecords">;
+type Deltas = Pick<DemoState, "todoOverrides" | "capturedVisits" | "uploadedRecords" | "arrangements">;
 
 const byDate = <T extends { date: string }>(a: T, b: T) => a.date.localeCompare(b.date);
 
@@ -68,7 +74,10 @@ export function deriveCare(seed: PatientSeed, deltas: Deltas): CareView {
   const records = [...seed.records, ...deltas.uploadedRecords].sort(byDate);
 
   const allTodos = [...seed.todos, ...deltas.capturedVisits.flatMap((v) => v.notes.todos)];
-  const todos: Todo[] = allTodos.map((t) => {
+  const todoUpdates = new Map(deltas.arrangements.flatMap((a) => (a.outcome.todoUpdate ? [[a.outcome.todoUpdate.id, a.outcome.todoUpdate] as const] : [])));
+  const todos: Todo[] = allTodos.map((base) => {
+    const u = todoUpdates.get(base.id);
+    const t = u ? { ...base, detail: u.detail, dueHint: u.dueHint ?? base.dueHint, dueDate: u.dueDate ?? base.dueDate } : base;
     const o = deltas.todoOverrides[t.id];
     if (!o) return t;
     return {
@@ -76,12 +85,23 @@ export function deriveCare(seed: PatientSeed, deltas: Deltas): CareView {
       done: o.done,
       doneAt: o.done ? o.at : undefined,
       resolvedByVisitId: o.done ? o.resolvedByVisitId : undefined,
+      arrangedById: o.done ? o.arrangedById : undefined,
     };
   });
 
+  // What Sonoclear booked replaces the unscheduled appointment it was for, or is added.
+  const booked: Appointment[] = [...seed.appointments];
+  for (const { outcome } of deltas.arrangements) {
+    const arranged = outcome.appointment;
+    if (!arranged) continue;
+    const i = booked.findIndex((a) => a.id === arranged.id);
+    if (i >= 0) booked[i] = { ...booked[i], ...arranged, status: "scheduled" };
+    else booked.push({ ...arranged, status: "scheduled" });
+  }
+  // Then a recorded visit completes the appointment it was linked to, whoever scheduled it.
   const completedBy = new Map<string, Visit>();
   for (const v of deltas.capturedVisits) if (v.appointmentId) completedBy.set(v.appointmentId, v);
-  const appointments: Appointment[] = seed.appointments.map((a) => {
+  const appointments: Appointment[] = booked.map((a) => {
     const v = completedBy.get(a.id);
     return v ? { ...a, status: "completed", completedVisitId: v.id } : a;
   });
@@ -139,6 +159,8 @@ export function deriveCare(seed: PatientSeed, deltas: Deltas): CareView {
     visitById: new Map(visits.map((v) => [v.id, v])),
     recordById: new Map(records.map((r) => [r.id, r])),
     clinicianById: new Map(seed.clinicians.map((c) => [c.id, c])),
+    arrangements: deltas.arrangements,
+    arrangementByTaskId: new Map(deltas.arrangements.map((a) => [a.taskId, a])),
   };
 }
 
@@ -146,6 +168,7 @@ const selectDeltas = (s: DemoState): Deltas => ({
   todoOverrides: s.todoOverrides,
   capturedVisits: s.capturedVisits,
   uploadedRecords: s.uploadedRecords,
+  arrangements: s.arrangements,
 });
 
 /** One shared view per set of changes, so many components reading it compute it once. */
@@ -156,7 +179,8 @@ function careFor(deltas: Deltas): CareView {
     cached &&
     cached.deltas.todoOverrides === deltas.todoOverrides &&
     cached.deltas.capturedVisits === deltas.capturedVisits &&
-    cached.deltas.uploadedRecords === deltas.uploadedRecords;
+    cached.deltas.uploadedRecords === deltas.uploadedRecords &&
+    cached.deltas.arrangements === deltas.arrangements;
   if (!hit) cached = { deltas, view: deriveCare(getSeed(), deltas) };
   return cached!.view;
 }
@@ -193,6 +217,7 @@ export function getPatientContext(): PatientContext {
     records: v.records,
     todos: v.todos,
     appointments: v.appointments,
+    arrangements: v.arrangements,
   };
 }
 
@@ -203,6 +228,7 @@ export function useCareActions() {
       setTodoDone: s.setTodoDone,
       addCapturedVisit: s.addCapturedVisit,
       addUploadedRecord: s.addUploadedRecord,
+      addArrangement: s.addArrangement,
       setReplaySpeed: s.setReplaySpeed,
       resetDemo: s.resetDemo,
     })),

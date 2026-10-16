@@ -17,6 +17,7 @@ import { SourceChip } from "@/components/ui/source-chip";
 import { EmptyState, LoadingState, Note } from "@/components/ui/states";
 import { TermChip, TermLink } from "@/components/ui/term";
 import { TodoRow } from "@/components/ui/todo-row";
+import { RecordFigure } from "@/components/records/visuals";
 import { useCare } from "@/lib/care";
 import { formatDuration, formatShortDate } from "@/lib/dates";
 import { VISIT_TYPE_LABELS, VISIT_TYPES } from "@/lib/visit-types";
@@ -54,6 +55,11 @@ export function Styleguide() {
   const results = care.visitById.get("visit-results");
   const erTerm = care.glossary.find((t) => t.id === "er-positive");
   const biradsTerm = care.glossary.find((t) => t.id === "bi-rads-5");
+  const figures = [
+    care.recordById.get("record-diagnostic-imaging")?.explanation.visuals?.find((v) => v.kind === "locator"),
+    care.recordById.get("record-diagnostic-imaging")?.explanation.visuals?.find((v) => v.kind === "scale"),
+    pathology?.explanation.visuals?.find((v) => v.kind === "markers"),
+  ].filter((v) => v !== undefined);
 
   return (
     <Page width="default">
@@ -175,6 +181,12 @@ export function Styleguide() {
           </Card>
         </Block>
 
+        <Block title="Record button">
+          <ButtonLink href="/styleguide/record" variant="secondary">
+            See the record button gallery
+          </ButtonLink>
+        </Block>
+
         <Block title="To-do rows">
           <Card className="divide-y divide-line px-5">
             {care.todos
@@ -206,6 +218,20 @@ export function Styleguide() {
               <p className="text-body text-ink-muted">Sheets hold secondary detail and never cover data the patient needs.</p>
             </Sheet>
           </div>
+        </Block>
+
+        <Block title="Figures">
+          <p className="-mt-2 mb-6 max-w-xl text-body-sm text-ink-muted">
+            Quiet drawings in a record&rsquo;s &ldquo;At a glance&rdquo; section. Hairlines, one sage mark for your result, a
+            caption in plain words. Never a chart.
+          </p>
+          <Card className="divide-y divide-line">
+            {figures.map((visual, i) => (
+              <div key={`${visual.kind}-${i}`} className="px-5 py-5 sm:px-6">
+                <RecordFigure visual={visual} />
+              </div>
+            ))}
+          </Card>
         </Block>
 
         <Block title="Sources">

@@ -1,4 +1,4 @@
-import { expect, nav, recordSurgicalConsult, test } from "./fixtures";
+import { arrangeMri, expect, nav, recordSurgicalConsult, test } from "./fixtures";
 
 test("the demo arc works end to end with no dead ends", async ({ page }) => {
   // Journey: greeting and Up next.
@@ -27,18 +27,30 @@ test("the demo arc works end to end with no dead ends", async ({ page }) => {
 
   // Capture the surgical consult and land on the new visit with new to-dos.
   await recordSurgicalConsult(page);
-  await expect(page.getByText("Schedule your breast MRI")).toBeVisible();
-  await expect(page.getByText("Get your pre-op bloodwork")).toBeVisible();
+  await expect(page.getByText("Schedule your breast MRI", { exact: true })).toBeVisible();
+  await expect(page.getByText("Get your pre-op bloodwork", { exact: true })).toBeVisible();
 
   // Back on Journey, the timeline has advanced and the new to-dos lead.
   await nav(page, "Journey").click();
   await expect(page.getByRole("button", { name: /Treatment planning\s*,\s*current stage/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /Diagnosis\s*,\s*done/ })).toBeVisible();
-  await expect(page.getByText("Schedule your breast MRI").first()).toBeVisible();
+  await expect(page.getByText("Schedule your breast MRI", { exact: true }).first()).toBeVisible();
 
   // It survives a refresh.
   await page.reload();
   await expect(page.getByRole("button", { name: /Treatment planning\s*,\s*current stage/ })).toBeVisible();
+
+  // Arrange the MRI; Journey then shows it as Up next and the to-do as done.
+  await arrangeMri(page);
+  await nav(page, "Journey").click();
+  const upNext = page.getByRole("region", { name: "Up next" });
+  await expect(upNext.getByText("Breast MRI")).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: "Schedule your breast MRI" })).toHaveCount(0);
+
+  // The MRI survives a refresh.
+  await page.reload();
+  await expect(page.getByRole("region", { name: "Up next" }).getByText("Breast MRI")).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: "Schedule your breast MRI" })).toHaveCount(0);
 });
 
 test("a checked to-do survives a refresh", async ({ page }) => {
@@ -98,12 +110,17 @@ test("adding a record: a sample is explained, an unknown document is saved hones
 test("Reset demo returns to the starting state", async ({ page }) => {
   await page.goto("/journey");
   await recordSurgicalConsult(page);
+  await arrangeMri(page);
   await page.goto("/profile");
   await page.getByRole("button", { name: "Reset demo" }).first().click();
   await page.getByRole("dialog").getByRole("button", { name: "Reset demo" }).click();
   await expect(page).toHaveURL(/\/journey$/);
   await expect(page.getByRole("button", { name: /Diagnosis\s*,\s*current stage/ })).toBeVisible();
   await expect(page.getByText("Schedule your breast MRI")).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Up next" }).getByText("Breast MRI")).toHaveCount(0);
+  await page.goto("/arrange");
+  await expect(page.locator("#main").getByText("Request your imaging discs", { exact: true })).toBeVisible();
+  await expect(page.locator("#main").getByText("Schedule your breast MRI")).toHaveCount(0);
 });
 
 test("leaving a page with a sheet open never blocks the app", async ({ page }) => {

@@ -3,6 +3,8 @@
  * Mock implementations live in `services/mock`; real ones replace them in `services/index.ts`.
  */
 import type {
+  AgentEvent,
+  ArrangeTask,
   ChatMessage,
   ISODate,
   PatientContext,
@@ -83,6 +85,17 @@ export interface ChatProvider {
   }): AsyncIterable<ChatChunk>;
   /** Questions to offer on the empty Ask page, optionally tuned to a focused visit or record. */
   suggestedQuestions(patient: PatientContext, focus?: VisitId | RecordId): string[];
+}
+
+/* ---------- Arrange ---------- */
+
+export interface SchedulingAgent {
+  /** What could be arranged right now, from the patient's to-dos and appointments. Pure. */
+  tasks(patient: PatientContext): ArrangeTask[];
+  /** Works a task up to the point where the patient must choose (ends with "options"), or straight to an outcome. */
+  plan(input: { task: ArrangeTask; patient: PatientContext; signal?: AbortSignal }): AsyncIterable<AgentEvent>;
+  /** Books the chosen option (ends with "outcome"). */
+  confirm(input: { task: ArrangeTask; optionId: string; patient: PatientContext; signal?: AbortSignal }): AsyncIterable<AgentEvent>;
 }
 
 /* ---------- Patient data ---------- */

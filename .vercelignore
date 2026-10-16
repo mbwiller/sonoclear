@@ -1,0 +1,8 @@
+# Keep the clinical dataset, screenshots and local test output off the deploy.
+DMID_PNG
+.shots
+test-results
+playwright-report
+.git
+node_modules
+.next

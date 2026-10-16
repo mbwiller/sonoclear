@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, recordSurgicalConsult, startRecording, test } from "./fixtures";
+import { expect, nav, recordSurgicalConsult, startRecording, test } from "./fixtures";
 
 // Scan settled pages: with reduced motion the fade-ins finish instantly.
 test.use({ reducedMotion: "reduce" });
@@ -12,10 +12,14 @@ const ROUTES = [
   "/records",
   "/record/record-pathology",
   "/record/record-baseline-labs",
+  "/record/record-diagnostic-imaging",
   "/ask",
   "/ask?focus=visit-results",
+  "/arrange",
   "/profile",
   "/styleguide",
+  "/styleguide/record",
+  "/styleguide/arrange",
 ];
 
 for (const route of ROUTES) {
@@ -91,6 +95,17 @@ test.describe("accessibility in deeper states", () => {
     expect(await scan(page)).toEqual([]);
     await page.goto("/journey");
     await page.locator("h1").first().waitFor();
+    expect(await scan(page)).toEqual([]);
+  });
+
+  test("the Arrange run, choosing a time", async ({ page }) => {
+    await page.goto("/journey");
+    await recordSurgicalConsult(page);
+    await nav(page, "Arrange").click();
+    const card = page.locator("li").filter({ hasText: "Schedule your breast MRI" }).filter({ visible: true });
+    await card.getByRole("button", { name: /Arrange this/ }).click();
+    const run = page.getByRole("dialog", { name: "Arranging: Schedule your breast MRI" });
+    await run.getByRole("radio").first().waitFor({ timeout: 30_000 });
     expect(await scan(page)).toEqual([]);
   });
 

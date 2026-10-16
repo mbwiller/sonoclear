@@ -2,7 +2,8 @@
  * Guards for state read back from localStorage. Saved data can be old, partial or
  * hand-edited; anything that doesn't fit is dropped rather than allowed to break a screen.
  */
-import type { ISODate, MedicalRecord, Todo, Visit } from "./types";
+import { VISIT_TYPES } from "./visit-types";
+import type { AgentEvent, Appointment, Arrangement, ArrangeOutcome, ISODate, MedicalRecord, Todo, Visit } from "./types";
 
 type Obj = Record<string, unknown>;
 
@@ -53,6 +54,98 @@ export function isRecord(v: unknown): v is MedicalRecord {
   );
 }
 
+const APPOINTMENT_STATUSES: readonly unknown[] = ["scheduled", "unscheduled", "completed"];
+
+function isAppointment(v: unknown): v is Appointment {
+  return (
+    isObj(v) &&
+    isStr(v.id) &&
+    isStr(v.title) &&
+    (VISIT_TYPES as readonly unknown[]).includes(v.visitType) &&
+    isStr(v.stageId) &&
+    APPOINTMENT_STATUSES.includes(v.status) &&
+    (v.date === null || isDate(v.date)) &&
+    (v.clinicianId === undefined || isStr(v.clinicianId)) &&
+    (v.location === undefined || isStr(v.location)) &&
+    (v.note === undefined || isStr(v.note))
+  );
+}
+
+function isOutcome(v: unknown): v is ArrangeOutcome {
+  if (!isObj(v) || !isStrArray(v.summary)) return false;
+  const u = v.todoUpdate;
+  return (
+    (v.appointment === undefined || isAppointment(v.appointment)) &&
+    (v.resolvedTodoIds === undefined || isStrArray(v.resolvedTodoIds)) &&
+    (u === undefined ||
+      (isObj(u) && isStr(u.id) && isStr(u.detail) && (u.dueHint === undefined || isStr(u.dueHint)) && (u.dueDate === undefined || isDate(u.dueDate)))) &&
+    (v.prep === undefined || isStrArray(v.prep)) &&
+    (v.reference === undefined || isStr(v.reference))
+  );
+}
+
+/** One entry of a saved replay. Entries that don't fit are dropped, so a screen never dereferences a hole. */
+export function isEvent(e: unknown): e is AgentEvent {
+  if (!isObj(e)) return false;
+  switch (e.type) {
+    case "step":
+      return isStr(e.id) && isStr(e.text);
+    case "step-done":
+      return isStr(e.id) && (e.result === undefined || isStr(e.result));
+    case "call":
+      return (
+        isStr(e.office) &&
+        isStr(e.phone) &&
+        Array.isArray(e.lines) &&
+        e.lines.every((l) => isObj(l) && (l.speaker === "sonoclear" || l.speaker === "office") && isStr(l.text))
+      );
+    case "options":
+      return (
+        isStr(e.prompt) &&
+        (e.note === undefined || isStr(e.note)) &&
+        Array.isArray(e.options) &&
+        e.options.every(
+          (o) => isObj(o) && isStr(o.id) && isStr(o.title) && isDate(o.date) && isStr(o.location) && (o.detail === undefined || isStr(o.detail)),
+        )
+      );
+    case "limit":
+      return isStr(e.text);
+    case "outcome":
+      return isOutcome(e.outcome);
+    default:
+      return false;
+  }
+}
+
+/**
+ * Saves written before `taskTitle` existed get one from the appointment they booked, rather than
+ * being dropped. Anything that isn't an object passes through for `isArrangement` to reject.
+ */
+export function withTaskTitle(v: unknown): unknown {
+  if (!isObj(v) || v.taskTitle !== undefined) return v;
+  const appointment = isObj(v.outcome) && isObj(v.outcome.appointment) ? v.outcome.appointment : undefined;
+  return { ...v, taskTitle: appointment && isStr(appointment.title) ? appointment.title : "Arranged" };
+}
+
+export function isArrangement(v: unknown): v is Arrangement {
+  return (
+    isObj(v) &&
+    isStr(v.id) &&
+    isStr(v.taskId) &&
+    isStr(v.taskTitle) &&
+    (v.optionId === undefined || isStr(v.optionId)) &&
+    isDate(v.arrangedAt) &&
+    Array.isArray(v.log) &&
+    isOutcome(v.outcome)
+  );
+}
+
+/** Keeps only the replay entries that fit; the arrangement itself stays. */
+export function cleanArrangement(a: Arrangement): Arrangement {
+  const saved: unknown[] = a.log;
+  return saved.every(isEvent) ? a : { ...a, log: saved.filter(isEvent) };
+}
+
 export function isTodoOverride(v: unknown): v is { done: boolean; at: ISODate } {
   return isObj(v) && typeof v.done === "boolean" && isDate(v.at);
 }
@@ -85,5 +178,32 @@ export function shiftRecord(r: MedicalRecord, days: number): MedicalRecord {
     date: shiftISO(r.date, days),
     addedAt: shiftISO(r.addedAt, days),
     explanation: { ...r.explanation, documentDate: shiftOpt(r.explanation.documentDate, days) },
+  };
+}
+
+export function shiftArrangement(a: Arrangement, days: number): Arrangement {
+  if (!days) return a;
+  const appt = a.outcome.appointment;
+  const update = a.outcome.todoUpdate;
+  const shiftOutcome = (o: ArrangeOutcome): ArrangeOutcome => {
+    const ap = o.appointment;
+    const up = o.todoUpdate;
+    return {
+      ...o,
+      ...(ap ? { appointment: { ...ap, date: shiftOpt(ap.date ?? undefined, days) ?? null } } : {}),
+      ...(up?.dueDate ? { todoUpdate: { ...up, dueDate: shiftISO(up.dueDate, days) } } : {}),
+    };
+  };
+  // The replay's prose is a record of what was said and isn't rewritten; its dates still move with the story.
+  const log = a.log.map((e): AgentEvent => {
+    if (e.type === "options") return { ...e, options: e.options.map((o) => ({ ...o, date: shiftISO(o.date, days) })) };
+    if (e.type === "outcome") return { ...e, outcome: shiftOutcome(e.outcome) };
+    return e;
+  });
+  return {
+    ...a,
+    arrangedAt: shiftISO(a.arrangedAt, days),
+    outcome: appt || update ? shiftOutcome(a.outcome) : a.outcome,
+    log,
   };
 }

@@ -1,4 +1,4 @@
-import { endRecording, expect, nav, recordSurgicalConsult, startRecording, test } from "./fixtures";
+import { arrangeGenetics, arrangeMri, endRecording, expect, nav, recordSurgicalConsult, startRecording, test } from "./fixtures";
 
 test("Ask's second question follows the journey once the consult is recorded", async ({ page }) => {
   await page.goto("/ask");
@@ -21,7 +21,7 @@ test("after Reset demo, the demo runs again from the start", async ({ page }) =>
   await expect(page.getByText("Surgical consult with Dr. Ellery").first()).toBeVisible();
   // Capture pre-selects the consult again, and recording it works a second time.
   await recordSurgicalConsult(page);
-  await expect(page.getByText("Schedule your breast MRI")).toBeVisible();
+  await expect(page.getByText("Schedule your breast MRI", { exact: true })).toBeVisible();
 });
 
 test("a recording survives leaving Capture and visiting other screens", async ({ page }) => {
@@ -52,8 +52,14 @@ test("a recording survives leaving Capture and visiting other screens", async ({
 
 test("recording another kind of visit is honest about the preview", async ({ page }) => {
   await page.goto("/capture");
-  await page.getByRole("radio", { name: "PCP" }).click();
-  await expect(page.getByText(/In this preview, full notes are available for the surgical consult/)).toBeVisible();
+  await page.getByRole("button", { name: /Change who you.re seeing/ }).click();
+  const sheet = page.getByRole("dialog", { name: "Who are you seeing?" });
+  await sheet.getByRole("radio", { name: "PCP" }).click();
+  await expect(sheet.getByText(/In this preview, full notes are available for the surgical consult/)).toBeVisible();
+  await sheet.getByRole("button", { name: "Done" }).click();
+  await expect(page.getByRole("dialog", { name: "Who are you seeing?" })).toHaveCount(0);
+  // The chip no longer reads as the scheduled consult.
+  await expect(page.locator("#main").getByText("PCP visit")).toBeVisible();
   await startRecording(page);
   await page.waitForTimeout(800);
   await endRecording(page);
@@ -61,6 +67,49 @@ test("recording another kind of visit is honest about the preview", async ({ pag
   // The journey doesn't move for a visit the preview can't summarize.
   await nav(page, "Journey").click();
   await expect(page.getByRole("button", { name: /Diagnosis\s*,\s*current stage/ })).toBeVisible();
+});
+
+test("Arrange before the consult: discs to request, the consult already booked", async ({ page }) => {
+  await page.goto("/arrange");
+  const main = page.locator("#main");
+  await expect(main.getByRole("heading", { level: 1, name: "Arrange" })).toBeVisible();
+  await expect(main.getByText("Request your imaging discs", { exact: true })).toBeVisible();
+  await expect(main.getByText("Schedule your breast MRI")).toHaveCount(0);
+  await expect(main.getByRole("heading", { name: "Already booked" })).toBeVisible();
+  await expect(main.getByText("Surgical consult with Dr. Ellery")).toBeVisible();
+  await expect(main.getByText(/calls and bookings are simulated/)).toBeVisible();
+});
+
+test("the follow-up waits for the MRI and genetic counseling, then can be arranged", async ({ page }) => {
+  await page.goto("/journey");
+  await recordSurgicalConsult(page);
+  await nav(page, "Arrange").click();
+  const followUp = () => page.locator("li").filter({ hasText: "Book your follow-up with Dr. Ellery" }).filter({ visible: true });
+  await expect(followUp()).toBeVisible();
+  await expect(followUp().getByText(/Once your MRI and genetic counseling dates are set/)).toBeVisible();
+  await expect(followUp().getByRole("button")).toHaveCount(0);
+  await arrangeMri(page);
+  // Still waiting: genetic counseling isn't arranged yet.
+  await expect(followUp().getByRole("button")).toHaveCount(0);
+  await arrangeGenetics(page);
+  await expect(followUp().getByRole("button", { name: /Arrange this/ })).toBeVisible();
+  await expect(page.locator("#main").getByRole("heading", { name: "Arranged" })).toBeVisible();
+});
+
+test("cancelling an arrangement leaves nothing arranged", async ({ page }) => {
+  await page.goto("/journey");
+  await recordSurgicalConsult(page);
+  await nav(page, "Arrange").click();
+  const card = page.locator("li").filter({ hasText: "Schedule your breast MRI" }).filter({ visible: true });
+  await card.getByRole("button", { name: /Arrange this/ }).click();
+  const run = page.getByRole("dialog", { name: "Arranging: Schedule your breast MRI" });
+  await expect(run).toBeVisible();
+  await run.getByRole("button", { name: "Cancel" }).click();
+  await expect(run).toHaveCount(0);
+  const main = page.locator("#main");
+  await expect(main.getByRole("heading", { name: "Arranged" })).toHaveCount(0);
+  await expect(main.getByText("See what happened")).toHaveCount(0);
+  await expect(card.getByRole("button", { name: /Arrange this/ })).toBeVisible();
 });
 
 test("a corrupted save never locks the patient out", async ({ page }) => {

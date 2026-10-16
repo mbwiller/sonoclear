@@ -178,7 +178,7 @@
 .bars[data-live="true"] > span:nth-child(3) { animation-delay: 0s; }
 @keyframes bar-breathe {
   0%, 100% { transform: scaleY(0.35); }
-  50% { transform: scaleY(1); }
+  50% { transform: scaleY(calc(0.55 + 0.45 * var(--bars-energy, 1))); }
 }
 
 /* ---------- Sheets (native <dialog>) ---------- */
@@ -231,117 +231,6 @@ html:has(dialog[open]) {
   overflow: hidden;
 }
 
-/* ---------- Liquid glass: the Start recording disc (Capture) ---------- */
-/* A soft wash of color drifting behind the disc, so the glass has something to refract. */
-.record-aura {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  mask-image: radial-gradient(ellipse 55% 70% at 50% 40%, black 25%, transparent 72%);
-}
-.record-aura > span {
-  position: absolute;
-  border-radius: 999px;
-  filter: blur(30px);
-  animation: aura-drift 16s ease-in-out infinite alternate;
-  will-change: transform;
-}
-.record-aura > span:nth-child(1) {
-  width: 280px;
-  height: 230px;
-  left: calc(50% - 200px);
-  top: 4%;
-  background: var(--color-sage-soft);
-}
-.record-aura > span:nth-child(2) {
-  width: 250px;
-  height: 250px;
-  left: calc(50% - 30px);
-  top: -6%;
-  background: rgb(35 47 92 / 0.085);
-  animation-delay: -6s;
-  animation-duration: 20s;
-}
-.record-aura > span:nth-child(3) {
-  width: 220px;
-  height: 190px;
-  left: calc(50% - 120px);
-  top: 42%;
-  background: rgb(107 122 76 / 0.24);
-  animation-delay: -11s;
-  animation-duration: 18s;
-}
-@keyframes aura-drift {
-  0% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(26px, -16px) scale(1.08); }
-  100% { transform: translate(-20px, 14px) scale(0.95); }
-}
-
-.glass-disc {
-  position: relative;
-  isolation: isolate;
-  background: linear-gradient(
-    160deg,
-    rgb(255 255 255 / 0.66),
-    rgb(255 255 255 / 0.2) 55%,
-    rgb(255 255 255 / 0.38)
-  );
-  -webkit-backdrop-filter: blur(16px) saturate(1.6);
-  backdrop-filter: blur(16px) saturate(1.6);
-  border: 1px solid rgb(255 255 255 / 0.8);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.95),
-    inset 0 -12px 20px rgb(35 47 92 / 0.07),
-    inset 0 0 0 1px rgb(35 47 92 / 0.03),
-    0 1px 2px rgb(35 47 92 / 0.05),
-    0 26px 44px -18px rgb(35 47 92 / 0.3);
-  transition:
-    transform 260ms var(--ease-calm),
-    box-shadow 260ms var(--ease-calm);
-}
-/* Specular highlight, top-left. */
-.glass-disc::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(58% 46% at 30% 16%, rgb(255 255 255 / 0.9), rgb(255 255 255 / 0) 72%);
-}
-/* Refractive rim: a hairline ring that catches light at the top and bottom-right. */
-.glass-disc::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1.5px;
-  background: conic-gradient(
-    from 210deg,
-    rgb(255 255 255 / 0),
-    rgb(255 255 255 / 0.95) 22%,
-    rgb(255 255 255 / 0) 46%,
-    rgb(107 122 76 / 0.4) 72%,
-    rgb(255 255 255 / 0)
-  );
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  mask-composite: exclude;
-}
-.group:hover .glass-disc {
-  transform: translateY(-1px) scale(1.025);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 1),
-    inset 0 -12px 20px rgb(35 47 92 / 0.06),
-    inset 0 0 0 1px rgb(35 47 92 / 0.03),
-    0 1px 2px rgb(35 47 92 / 0.05),
-    0 32px 52px -18px rgb(35 47 92 / 0.34);
-}
-.group:active .glass-disc {
-  transform: scale(0.97);
-  transition-duration: 120ms;
-}
-
 /* ---------- Journey path: the travelled line draws in once ---------- */
 .journey-path-draw {
   stroke-dasharray: 1;
@@ -350,4 +239,19 @@ html:has(dialog[open]) {
 }
 @keyframes journey-draw {
   to { stroke-dashoffset: 0; }
+}
+
+/* ---------- Record button gallery: the slow ring on the sage disc (opacity only) ---------- */
+.record-breathe {
+  animation: record-breathe 4s ease-in-out infinite;
+}
+@keyframes record-breathe {
+  0%, 100% { opacity: 0.18; }
+  50% { opacity: 0.55; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .record-breathe {
+    animation: none;
+    opacity: 0.35;
+  }
 }

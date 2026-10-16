@@ -129,6 +129,41 @@ Electronically signed: ${examDate}, 4:12 PM`;
         "What does my breast density mean for how my breasts are imaged from now on?",
         "Can I get a copy of these images to bring to other appointments?",
       ],
+      visuals: [
+        {
+          kind: "images",
+          title: "Your screening views",
+          note: "The area the radiologist wanted a closer look at, in the upper outer part of your left breast. Dense tissue shows as the brighter, cloudy regions.",
+          images: [
+            {
+              src: "/imaging/left-cc.jpg",
+              alt: "Mammogram of the left breast from above, with a ring around the possible mass",
+              caption: "Left breast, CC view (from above)",
+              width: 520,
+              height: 800,
+              mark: { x: 0.32, y: 0.65, r: 0.1, label: "Possible mass" },
+            },
+            {
+              src: "/imaging/left-mlo.jpg",
+              alt: "Mammogram of the left breast from the side, with a ring around the possible mass",
+              caption: "Left breast, MLO view (from the side)",
+              width: 520,
+              height: 860,
+              mark: { x: 0.34, y: 0.65, r: 0.09, label: "Possible mass" },
+            },
+          ],
+        },
+        {
+          kind: "scale",
+          title: "BI-RADS category",
+          min: 0,
+          max: 6,
+          value: 0,
+          valueLabel: "BI-RADS 0",
+          marks: [0, 1, 2, 3, 4, 5, 6].map((n) => ({ value: n, label: String(n) })),
+          caption: "0 means the exam isn't finished: more pictures were needed.",
+        },
+      ],
     },
   };
 }

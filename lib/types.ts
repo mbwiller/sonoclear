@@ -142,6 +142,8 @@ export interface Todo {
   doneAt?: ISODate;
   /** Set when a later visit covered this to-do. */
   resolvedByVisitId?: VisitId;
+  /** Set when an arrangement made through Arrange fulfilled this to-do. */
+  arrangedById?: string;
 }
 
 export interface StageUpdate {
@@ -189,6 +191,58 @@ export interface KeyFinding {
   term?: Term;
 }
 
+/**
+ * A quiet figure in a record's "At a glance" section: one idea each, drawn with hairlines
+ * and a single sage accent, with a one-line caption in plain words. Never a chart.
+ */
+export type RecordVisual =
+  /** Where in the breast: a clock-face position and distance from the nipple, with an optional size. */
+  | { kind: "locator"; side: "left" | "right"; clock: number; distanceCm: number; sizeCm?: number; caption: string }
+  /** A number line with the patient's value marked, e.g. BI-RADS 0–6, grade 1–3, Nottingham 3–9. */
+  | {
+      kind: "scale";
+      title: string;
+      min: number;
+      max: number;
+      value: number;
+      valueLabel: string;
+      marks: { value: number; label: string }[];
+      caption: string;
+    }
+  /** A size drawn to scale against a ruler, with an everyday comparison in words. */
+  | { kind: "measure"; title: string; cm: number; compare: string; caption: string }
+  /** Receptor and marker results as tiles: present (filled dot), absent (hollow), or a number. */
+  | {
+      kind: "markers";
+      title: string;
+      caption?: string;
+      items: { label: string; present: boolean | null; value: string; percent?: number; plain: string; term?: Term }[];
+    }
+  /** Lab values on their reference ranges. */
+  | {
+      kind: "ranges";
+      title: string;
+      caption?: string;
+      rows: { label: string; value: number; unit: string; low: number; high: number; plain?: string }[];
+    }
+  /** Numbered steps, e.g. what happened during a biopsy and what happens next. */
+  | { kind: "sequence"; title: string; caption?: string; steps: { label: string; detail?: string }[] }
+  /** Images from the study, each with an optional mark (fractions of the image) and a caption. */
+  | {
+      kind: "images";
+      title: string;
+      note: string;
+      images: {
+        src: string;
+        alt: string;
+        caption: string;
+        /** Natural pixel size, so the box is reserved before the image loads and marks stay aligned. */
+        width: number;
+        height: number;
+        mark?: { x: number; y: number; r: number; label: string };
+      }[];
+    };
+
 export interface RecordExplanation {
   /** False when the document couldn't be interpreted in this preview. */
   recognized: boolean;
@@ -202,6 +256,8 @@ export interface RecordExplanation {
   questionsToAsk?: string[];
   /** Honest note shown when not recognized or partially recognized. */
   note?: string;
+  /** Quiet figures shown under the record header, in this order. */
+  visuals?: RecordVisual[];
 }
 
 export type RecordOriginal =
@@ -265,6 +321,8 @@ export interface PatientContext {
   records: MedicalRecord[];
   todos: Todo[];
   appointments: Appointment[];
+  /** What Sonoclear has arranged for her so far. */
+  arrangements: Arrangement[];
 }
 
 /** The starting state of the demo, before any of the patient's own changes. */
@@ -278,4 +336,64 @@ export interface PatientSeed {
   todos: Todo[];
   appointments: Appointment[];
   glossary: Term[];
+}
+
+/* ---------- Arrange ---------- */
+export type ArrangeTaskId = string;
+export type ArrangeKind = "book" | "request" | "find";
+
+export interface ArrangeTask {
+  id: ArrangeTaskId;                 // stable: "arrange-mri", "arrange-genetics", "arrange-bloodwork", "arrange-follow-up", "arrange-imaging-discs"
+  kind: ArrangeKind;
+  title: string;                     // "Schedule your breast MRI"
+  detail: string;                    // one line: what and why, from the visit
+  office: { label: string; phone: string };
+  sourceVisitId?: VisitId;
+  todoId?: TodoId;                   // the to-do this fulfils or updates
+  appointmentId?: AppointmentId;     // existing unscheduled appointment this will schedule
+  /** Set when another task must be arranged first, e.g. the follow-up waits for the MRI. */
+  waitsFor?: { taskId: ArrangeTaskId; reason: string };
+}
+
+export interface ArrangeOption {
+  id: string;
+  title: string;                     // "Thursday, October 29 at 8:15 AM"
+  date: ISODate;
+  location: string;
+  detail?: string;                   // "Earliest opening · about 45 minutes"
+}
+
+export interface CallLine { speaker: "sonoclear" | "office"; text: string }
+
+export type AgentEvent =
+  | { type: "step"; id: string; text: string }                         // a step starts (shows live bars)
+  | { type: "step-done"; id: string; result?: string }                 // it finished; optional one-line result
+  | { type: "call"; office: string; phone: string; lines: CallLine[] } // simulated call, shown collapsed
+  | { type: "options"; prompt: string; options: ArrangeOption[]; note?: string } // plan() ends here
+  | { type: "outcome"; outcome: ArrangeOutcome }                       // confirm() (or a no-choice plan()) ends here
+  | { type: "limit"; text: string };                                   // honest limitation
+
+export interface ArrangeOutcome {
+  summary: string[];                 // 1–3 short paragraphs, voice per VISION
+  appointment?: Appointment;         // new, or the same id as an existing unscheduled one (then it replaces it)
+  resolvedTodoIds?: TodoId[];        // to-dos this fulfils ("Schedule your MRI" is done once scheduled)
+  /** To-dos that stay open but now have a plan. Keep dates out of `detail`; put them in `dueDate` so they shift with the story. */
+  todoUpdate?: { id: TodoId; detail: string; dueHint?: string; dueDate?: ISODate };
+  prep?: string[];                   // what to bring or know
+  reference?: string;                // "LH-MRI-20931"
+}
+
+export interface Arrangement {
+  id: string;
+  taskId: ArrangeTaskId;
+  /** The task's title at the time, so the Arranged list can name it even after the task is gone. */
+  taskTitle: string;
+  optionId?: string;
+  outcome: ArrangeOutcome;
+  /**
+   * What was shown, replayable on the Arranged detail view. A historical record: its prose is
+   * never rewritten when the story's dates shift, only its `options[].date` values are.
+   */
+  log: AgentEvent[];
+  arrangedAt: ISODate;
 }

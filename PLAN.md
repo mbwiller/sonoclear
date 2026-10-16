@@ -88,6 +88,7 @@ Fictional health system: **Linden Health**. Phone numbers use the fictional 555-
 | Dr. Marcus Ellery | Breast surgeon | Linden Health Breast Surgery, Suite 300 | (617) 555-0162 |
 | Linden Health Imaging scheduling | MRI scheduling | — | (617) 555-0168 |
 | Linden Health Cancer Genetics | Genetic counseling | — | (617) 555-0175 |
+| Linden Health Laboratory | Lab line (walk-in hours, orders) | Westgate, Elm Street, Suite 300 draw station | (617) 555-0180 |
 
 **Events (offsets in days from DEMO_TODAY)**
 | Offset | Event | Facts |
@@ -113,7 +114,7 @@ Fictional health system: **Linden Health**. Phone numbers use the fictional 555-
 2. Book your genetic counseling appointment — referral sent today; Linden Health Cancer Genetics, (617) 555-0175.
 3. Get your pre-op bloodwork — any Linden Health lab, within two weeks, no fasting needed.
 4. Read the booklet on lumpectomy and mastectomy — before your follow-up with Dr. Ellery.
-5. Book a follow-up with Dr. Ellery after your MRI — once the MRI date is set.
+5. Book a follow-up with Dr. Ellery after your MRI — once your MRI and genetic counseling dates are set.
 Resolved: to-dos 1, 2, 3 above.
 
 ## 4. Milestones (all in this session)

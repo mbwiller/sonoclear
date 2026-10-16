@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, MessageCircleQuestionMark, Route } from "lucide-react";
+import { CalendarCheck, FileText, MessageCircleQuestionMark, Route } from "lucide-react";
 import type { NavHref } from "./nav-items";
 
 /** Capture uses the three-bar motif drawn as an outline icon, to match the set. */
@@ -22,5 +22,7 @@ export function NavIcon({ href, size = 22 }: { href: NavHref; size?: number }) {
       return <FileText size={size} aria-hidden />;
     case "/ask":
       return <MessageCircleQuestionMark size={size} aria-hidden />;
+    case "/arrange":
+      return <CalendarCheck size={size} aria-hidden />;
   }
 }

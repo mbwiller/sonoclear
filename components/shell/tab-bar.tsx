@@ -10,7 +10,7 @@ import { activeTab, NAV_ITEMS } from "./nav-items";
 function TabBarInner({ active }: { active: string | null }) {
   return (
     <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-paper pb-safe lg:hidden">
-      <ul className="mx-auto grid h-16 max-w-md grid-cols-4">
+      <ul className="mx-auto grid h-16 max-w-md grid-cols-5">
         {NAV_ITEMS.map((item) => {
           const isActive = active === item.href;
           return (

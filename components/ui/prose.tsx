@@ -29,7 +29,7 @@ export function linkifyPhones(text: string): ReactNode {
       <a
         key={i}
         href={`tel:+1${part.replace(/\D/g, "")}`}
-        className="whitespace-nowrap underline decoration-line-strong/60 underline-offset-[3px] hover:decoration-ink"
+        className="-my-3 inline-block whitespace-nowrap py-3 underline decoration-line-strong/60 underline-offset-[3px] hover:decoration-ink"
       >
         {part}
       </a>

@@ -5,15 +5,8 @@
  * Must agree with PLAN.md §3 "Consult output". Pure: all dates come from `cal`.
  */
 import { term } from "@/fixtures/glossary";
-import type { Calendar } from "@/lib/dates";
+import { weekdayOnOrAfter, type Calendar } from "@/lib/dates";
 import type { VisitNotes } from "@/lib/types";
-
-/** The first weekday on or after `offset` days from today, so "call by" never lands on a weekend. */
-function weekdayOnOrAfter(cal: Calendar, offset: number): string {
-  let o = offset;
-  while ([0, 6].includes(new Date(cal.day(o)).getDay())) o += 1;
-  return cal.day(o);
-}
 
 export function buildSurgicalConsultNotes(args: { cal: Calendar; visitId: string; createdAt: string }): VisitNotes {
   const { cal, visitId, createdAt } = args;
@@ -68,7 +61,7 @@ export function buildSurgicalConsultNotes(args: { cal: Calendar; visitId: string
         id: `${visitId}-book-follow-up`,
         text: "Book a follow-up with Dr. Ellery after your MRI",
         detail: "Call Dr. Ellery's office at (617) 555-0162. Ask for a time after your MRI and genetic counseling.",
-        dueHint: "Once your MRI date is set",
+        dueHint: "Once your MRI and genetic counseling dates are set",
         sourceVisitId: visitId,
         stageId: "treatment-planning",
         createdAt,

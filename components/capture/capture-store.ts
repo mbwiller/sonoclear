@@ -31,6 +31,8 @@ interface CaptureData {
   /** The engine reported a problem; what was captured so far is kept. */
   interrupted: boolean;
   segments: TranscriptSegment[];
+  /** `performance.now()` when the last non-final segment arrived while recording; drives the bars. */
+  lastInterimAt: number | null;
   /** Real recorded time before the current run, in ms. */
   accumulatedMs: number;
   /** `performance.now()` when the current run began; null while paused. */
@@ -69,6 +71,7 @@ const INITIAL: Omit<CaptureData, "generation" | "resetCountSeen"> = {
   status: "recording",
   interrupted: false,
   segments: [],
+  lastInterimAt: null,
   accumulatedMs: 0,
   resumedAt: null,
   transcript: null,
@@ -138,7 +141,11 @@ export const useCaptureStore = create<CaptureData & CaptureActions>()((set, get)
       const session = services.transcription.start({ visitType: setup.visitType });
       const current = () => run === mine && get().session === session;
       session.onSegment((segment) => {
-        if (current()) set((s) => ({ segments: mergeSegment(s.segments, segment) }));
+        if (!current()) return;
+        set((s) => ({
+          segments: mergeSegment(s.segments, segment),
+          lastInterimAt: !segment.isFinal && s.status === "recording" ? performance.now() : s.lastInterimAt,
+        }));
       });
       session.onError?.(() => {
         if (!current()) return;

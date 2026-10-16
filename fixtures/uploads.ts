@@ -109,6 +109,39 @@ export const UPLOAD_FIXTURES: UploadFixture[] = [
           "Would it help to send these earlier images along with my recent ones?",
           "Does my breast density change which kinds of imaging are useful for me?",
         ],
+        visuals: [
+          {
+            kind: "images",
+            title: "Your screening views",
+            note: "Nothing on these pictures needed a closer look. The tissue is dense, which shows as the brighter, cloudy regions.",
+            images: [
+              {
+                src: "/imaging/prior-left-cc.jpg",
+                alt: "Mammogram of the left breast from above, last year",
+                caption: "Left breast, CC view",
+                width: 700,
+                height: 880,
+              },
+              {
+                src: "/imaging/prior-left-mlo.jpg",
+                alt: "Mammogram of the left breast from the side, last year",
+                caption: "Left breast, MLO view",
+                width: 760,
+                height: 960,
+              },
+            ],
+          },
+          {
+            kind: "scale",
+            title: "BI-RADS category",
+            min: 0,
+            max: 6,
+            value: 1,
+            valueLabel: "BI-RADS 1",
+            marks: [0, 1, 2, 3, 4, 5, 6].map((n) => ({ value: n, label: String(n) })),
+            caption: "1 means negative: nothing on the pictures needed a closer look.",
+          },
+        ],
       };
     },
   },

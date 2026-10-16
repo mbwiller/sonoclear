@@ -1,11 +1,14 @@
 import type { CareView } from "@/lib/care";
-import type { Clinician, ISODate, Transcript, TranscriptSegment, VisitNotes, VisitType } from "@/lib/types";
+import { startOfDay } from "@/lib/dates";
+import type { Appointment, Clinician, ISODate, Transcript, TranscriptSegment, VisitNotes, VisitType } from "@/lib/types";
 
 /** What the patient chose before recording. */
 export interface CaptureSetup {
   visitType: VisitType;
   /** As typed; may be empty. */
   clinicianName: string;
+  /** The appointment the Before screen matched when she pressed record, so the link uses what she saw. */
+  appointmentId?: string;
 }
 
 /* ---------- Segments ---------- */
@@ -56,12 +59,59 @@ export function normalizeNotes(notes: VisitNotes, visitId: string, startedAt: IS
 
 /* ---------- Who the visit is with ---------- */
 
-/** Pre-selection for the Before form: the next scheduled appointment, when there is one. */
-export function captureDefaults(care: CareView): { visitType: VisitType | null; clinicianName: string } {
-  const appt = care.nextAppointment;
-  if (!appt) return { visitType: null, clinicianName: "" };
-  const clinician = appt.clinicianId ? care.clinicianById.get(appt.clinicianId) : undefined;
-  return { visitType: appt.visitType, clinicianName: clinician?.name ?? "" };
+const MINUTE = 60_000;
+/** An appointment counts as "now" from this long before it starts… */
+const EARLY_MS = 90 * MINUTE;
+/** …until this long after it starts. */
+const LATE_MS = 4 * 60 * MINUTE;
+
+export interface AppointmentMatch {
+  appointment: Appointment;
+  /** "now": it is on or about to be; "next": the earliest one still ahead. */
+  status: "now" | "next";
+}
+
+/**
+ * Which scheduled appointment this recording most likely belongs to. Only visits someone holds
+ * count (a clinician is named, or the visit type isn't "other"), so the MRI or a blood draw
+ * never shows up as the visit to record.
+ * One that starts within 90 minutes, or began within the last 4 hours, is "now" (the nearest
+ * start wins). Otherwise the earliest scheduled appointment from today on is "next". Else null.
+ */
+export function matchAppointment(care: CareView, now: Date): AppointmentMatch | null {
+  const t = now.getTime();
+  const scheduled = care.upcomingAppointments.filter(
+    (a): a is Appointment & { date: ISODate } =>
+      a.status === "scheduled" && !!a.date && (!!a.clinicianId || a.visitType !== "other"),
+  );
+
+  let current: Appointment | undefined;
+  let closest = Infinity;
+  for (const a of scheduled) {
+    const start = new Date(a.date).getTime();
+    const distance = Math.abs(start - t);
+    if (t >= start - EARLY_MS && t <= start + LATE_MS && distance < closest) {
+      current = a;
+      closest = distance;
+    }
+  }
+  if (current) return { appointment: current, status: "now" };
+
+  const startOfToday = startOfDay(now);
+  const next = scheduled.find((a) => new Date(a.date) >= startOfToday);
+  return next ? { appointment: next, status: "next" } : null;
+}
+
+/** Pre-selection for the Before screen: the matched appointment's visit type and clinician. */
+export function captureDefaults(
+  care: CareView,
+  now: Date = new Date(),
+): { visitType: VisitType; clinicianName: string; match: AppointmentMatch | null } {
+  const match = matchAppointment(care, now);
+  if (!match) return { visitType: "other", clinicianName: "", match: null };
+  const { appointment } = match;
+  const clinician = appointment.clinicianId ? care.clinicianById.get(appointment.clinicianId) : undefined;
+  return { visitType: appointment.visitType, clinicianName: clinician?.name ?? "", match };
 }
 
 const words = (s: string) => s.toLowerCase().split(/[^a-z'-]+/).filter(Boolean);
@@ -78,14 +128,15 @@ export interface ResolvedVisit {
 }
 
 /**
- * Links the recording to the care team and the upcoming appointment where it honestly can:
- * a care-team clinician whose role matches and whose last name was typed (or, with no name typed,
- * the clinician of the matching appointment).
+ * Links the recording to the care team and the appointment where it honestly can: the one the
+ * Before screen matched (`setup.appointmentId`), if its visit type is still the one chosen and it
+ * hasn't been completed since; and a care-team clinician whose role matches and whose last name
+ * was typed (or, with no name typed, the clinician of that appointment).
  */
 export function resolveVisit(setup: CaptureSetup, care: CareView): ResolvedVisit {
   const typed = setup.clinicianName.trim();
-  const appt = care.nextAppointment;
-  const apptMatches = !!appt && appt.visitType === setup.visitType;
+  const appt = setup.appointmentId ? care.appointments.find((a) => a.id === setup.appointmentId) : undefined;
+  const apptMatches = !!appt && appt.status !== "completed" && appt.visitType === setup.visitType;
   const typedWords = new Set(words(typed));
   const clinician = care.clinicians.find((c) => {
     if (c.role !== setup.visitType) return false;

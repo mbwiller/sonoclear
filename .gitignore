@@ -44,3 +44,6 @@ next-env.d.ts
 /.shots
 /test-results
 /playwright-report
+
+# clinical image dataset (reference only; never commit)
+/DMID_PNG

@@ -4,9 +4,11 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 import { Bars } from "@/components/ui/bars";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
+import { RecordControls } from "@/components/styleguide/record-buttons";
 import { cn } from "@/lib/cn";
 import { formatClock } from "@/lib/dates";
 import type { TranscriptSegment } from "@/lib/types";
+import { useCaptureStore } from "./capture-store";
 import { LiveTranscriptSheet } from "./live-transcript";
 
 /**
@@ -63,6 +65,54 @@ function useNow(active: boolean): number {
   return now;
 }
 
+/**
+ * A faint sense that the bars are listening: energy jumps to 1 when new words arrive and
+ * settles to a resting 0.35 over ~700 ms. Written straight to a CSS variable, so no re-renders.
+ * Runs only while recording, never under reduced motion, and stops on hide or unmount.
+ */
+const RESTING_ENERGY = 0.35;
+const DECAY_MS = 700;
+function useBarsEnergy(active: boolean) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !active) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let frame = 0;
+    let lastSeen: number | null = null;
+    let from = performance.now();
+    let written = "";
+    const tick = (t: number) => {
+      const at = useCaptureStore.getState().lastInterimAt;
+      if (at !== null && at !== lastSeen) {
+        lastSeen = at;
+        from = at;
+      }
+      const k = Math.min(1, Math.max(0, (t - from) / DECAY_MS));
+      const energy = (lastSeen === null ? RESTING_ENERGY : 1 - (1 - RESTING_ENERGY) * k).toFixed(3);
+      if (energy !== written) {
+        written = energy;
+        el.style.setProperty("--bars-energy", energy);
+      }
+      // Settled at rest: stop until the next interim arrives (see the subscription below).
+      frame = lastSeen === null || k >= 1 ? 0 : requestAnimationFrame(tick);
+    };
+    const wake = () => {
+      if (!frame) frame = requestAnimationFrame(tick);
+    };
+    const unsubscribe = useCaptureStore.subscribe((s, prev) => {
+      if (s.lastInterimAt !== prev.lastInterimAt) wake();
+    });
+    wake();
+    return () => {
+      unsubscribe();
+      cancelAnimationFrame(frame);
+      el.style.removeProperty("--bars-energy");
+    };
+  }, [active]);
+  return ref;
+}
+
 /** Who the visit is with, as a quiet line: "Breast surgeon · Dr. Marcus Ellery". */
 function VisitLine({ typeLabel, name }: { typeLabel: string; name?: string }) {
   return (
@@ -84,11 +134,11 @@ function VisitLine({ typeLabel, name }: { typeLabel: string; name?: string }) {
 const frame =
   "mx-auto flex min-h-full w-full max-w-[30rem] flex-col px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.75rem,env(safe-area-inset-top))] lg:pb-14 lg:pt-12";
 const center = "flex flex-1 flex-col items-center justify-center py-10 text-center";
-/** The slot the clock sits in; processing reuses it so the bars never move. */
-const clockSlot = "mt-10 flex h-[4.25rem] items-center justify-center lg:h-[5rem]";
-const controls = "flex min-h-28 flex-col items-center justify-end gap-4";
+/** The slot under the bars (status word and time); processing reuses it so the bars never move. */
+const statusSlot = "mt-10 flex min-h-[4.5rem] flex-col items-center gap-1 lg:min-h-[4.75rem]";
+const controls = "flex min-h-40 flex-col items-center justify-end gap-3";
 
-/** During: almost nothing. The bars, the time, who it's with, and three controls. */
+/** During: almost nothing. The bars, a quiet time, who it's with, and the controls. */
 export function DuringView({
   typeLabel,
   name,
@@ -117,6 +167,7 @@ export function DuringView({
 }) {
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const now = useNow(!paused);
+  const barsRef = useBarsEnergy(!paused);
   const elapsed = !paused && resumedAt !== null ? accumulatedMs + Math.max(0, now - resumedAt) : accumulatedMs;
 
   return (
@@ -124,28 +175,30 @@ export function DuringView({
       <VisitLine typeLabel={typeLabel} name={name} />
 
       <div className={center}>
-        <Bars
-          size="xl"
-          live={!paused}
-          className={cn("transition-opacity duration-300 ease-calm", paused && "opacity-35")}
-        />
-        <p className={cn(clockSlot, "font-display text-[4.25rem] leading-none tracking-[-0.02em] lg:text-[5rem]")}>
-          <span className="sr-only">Time recorded: </span>
-          <span className={cn("tabular transition-colors duration-300 ease-calm", paused ? "text-ink-muted" : "text-ink")}>
+        <span ref={barsRef} className="inline-flex">
+          <Bars
+            size="xl"
+            live={!paused}
+            className={cn("transition-opacity duration-300 ease-calm", paused && "opacity-35")}
+          />
+        </span>
+        <div className={statusSlot}>
+          <div aria-live="polite">
+            {interrupted ? (
+              <p className="max-w-[20rem] text-body-sm text-ink-muted text-pretty">
+                <span className="font-medium text-ink">The recording stopped.</span> What was captured so far is
+                kept. Choose End to get your notes from it.
+              </p>
+            ) : (
+              <p className={cn("text-body-sm font-medium", paused ? "text-ink-muted" : "text-sage-ink")}>
+                {paused ? "Paused" : "Recording"}
+              </p>
+            )}
+          </div>
+          <p className="text-body-sm tabular text-ink-muted">
+            <span className="sr-only">Time recorded: </span>
             {formatClock(elapsed)}
-          </span>
-        </p>
-        <div aria-live="polite" className="mt-5 min-h-6">
-          {interrupted ? (
-            <p className="max-w-[20rem] text-body-sm text-ink-muted text-pretty">
-              <span className="font-medium text-ink">The recording stopped.</span> What was captured so far is
-              kept. Choose End to get your notes from it.
-            </p>
-          ) : (
-            <p className={cn("text-body-sm font-medium", paused ? "text-ink-muted" : "text-sage-ink")}>
-              {paused ? "Paused" : "Recording"}
-            </p>
-          )}
+          </p>
         </div>
       </div>
 
@@ -153,16 +206,14 @@ export function DuringView({
         <Button variant="quiet" onClick={() => setTranscriptOpen(true)} aria-haspopup="dialog">
           Show transcript
         </Button>
-        <div className={cn("grid w-full gap-3", interrupted ? "max-w-[11rem]" : "max-w-[22rem] grid-cols-2")}>
-          {interrupted ? null : (
-            <Button variant="secondary" size="lg" onClick={paused ? onResume : onPause}>
-              {paused ? "Resume" : "Pause"}
-            </Button>
-          )}
-          <Button variant="primary" size="lg" onClick={onEnd}>
-            End
-          </Button>
-        </div>
+        <RecordControls
+          variant="sage-disc"
+          paused={paused}
+          showPause={!interrupted}
+          onPause={onPause}
+          onResume={onResume}
+          onEnd={onEnd}
+        />
       </div>
 
       <LiveTranscriptSheet
@@ -187,12 +238,11 @@ export function ProcessingView({ typeLabel, name }: { typeLabel: string; name?: 
       <VisitLine typeLabel={typeLabel} name={name} />
       <div className={center}>
         <Bars size="xl" live />
-        <div className={clockSlot}>
+        <div className={statusSlot}>
           <p role="status" aria-live="polite" className="animate-fade-in font-display text-display-md text-ink lg:text-display-lg">
             Putting your notes together
           </p>
         </div>
-        <p aria-hidden className="mt-5 h-6" />
       </div>
       <div aria-hidden className={controls} />
     </div>

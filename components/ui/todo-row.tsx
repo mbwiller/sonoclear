@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useId } from "react";
+import { useId, useMemo } from "react";
 import { Check, CornerDownRight } from "lucide-react";
 import { clinicianShortName, useCare, useCareActions } from "@/lib/care";
 import { cn } from "@/lib/cn";
-import { formatUpcoming } from "@/lib/dates";
+import { formatShortDate, formatTime, formatUpcoming } from "@/lib/dates";
 import type { Todo } from "@/lib/types";
+import { services } from "@/services";
 import { linkifyPhones } from "./prose";
 
 /**
@@ -31,6 +32,21 @@ export function TodoRow({
   const source = todo.sourceVisitId ? care.visitById.get(todo.sourceVisitId) : undefined;
   const resolvedBy = todo.resolvedByVisitId ? care.visitById.get(todo.resolvedByVisitId) : undefined;
   const resolvedWho = resolvedBy ? clinicianShortName(resolvedBy, care) : null;
+  // A to-do Sonoclear fulfilled says so, with when and where if it booked something.
+  const arranged = todo.done && todo.arrangedById ? care.arrangements.find((a) => a.id === todo.arrangedById) : undefined;
+  const arrangedAppt = arranged?.outcome.appointment;
+
+  // An open to-do that Arrange can take on gets a way there, until it has been arranged.
+  const tasks = useMemo(() => services.scheduling.tasks(care), [care]);
+  const canArrange =
+    !todo.done &&
+    tasks.some(
+      (t) =>
+        t.todoId === todo.id &&
+        !care.arrangementByTaskId.has(t.id) &&
+        // A task that has to wait for another has nothing to arrange yet.
+        !(t.waitsFor && !care.arrangementByTaskId.has(t.waitsFor.taskId)),
+    );
 
   // Timing matters only while a to-do is open; on a done one it goes stale.
   const due = !todo.done && todo.dueDate ? formatUpcoming(todo.dueDate) : null;
@@ -82,7 +98,22 @@ export function TodoRow({
         {showDetail && todo.detail && !todo.done ? (
           <p className="mt-1 text-body-sm text-ink-muted text-pretty">{linkifyPhones(todo.detail)}</p>
         ) : null}
-        {todo.done && resolvedBy ? (
+        {canArrange ? (
+          <Link
+            href="/arrange"
+            className="-mb-2 mt-0.5 block w-fit rounded-sm py-3 text-body-sm text-ink underline decoration-line-strong underline-offset-[3px] transition-colors duration-200 hover:decoration-ink"
+          >
+            Arrange this<span className="sr-only">: {todo.text}</span>
+          </Link>
+        ) : null}
+        {todo.done && todo.arrangedById ? (
+          <p className="mt-0.5 text-body-sm text-sage-ink text-pretty">
+            Arranged by Sonoclear
+            {arrangedAppt?.date
+              ? ` · ${formatShortDate(arrangedAppt.date)} at ${formatTime(arrangedAppt.date)}${arrangedAppt.location ? `, ${arrangedAppt.location}` : ""}`
+              : ""}
+          </p>
+        ) : todo.done && resolvedBy ? (
           <p className="mt-0.5 text-body-sm text-sage-ink">
             Covered during your visit{resolvedWho ? ` with ${resolvedWho}` : ""}
           </p>

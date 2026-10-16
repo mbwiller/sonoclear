@@ -146,6 +146,22 @@ Reviewed by ordering physician: Priya Raman, MD`;
         "Are any of these results ones you'll want to check again later?",
         "Do I need to do anything to get ready for future blood tests, like fasting?",
       ],
+      visuals: [
+        {
+          kind: "ranges",
+          title: "Key results and their reference ranges",
+          caption: "The reference range is where most healthy adults' results fall. Every result here is inside it.",
+          rows: [
+            { label: "Hemoglobin", value: 13.4, unit: "g/dL", low: 12.0, high: 15.5, plain: "Carries oxygen in red blood cells." },
+            { label: "White blood cells", value: 6.2, unit: "×10³/µL", low: 4.0, high: 10.5, plain: "Cells that fight infection." },
+            { label: "Platelets", value: 248, unit: "×10³/µL", low: 150, high: 400, plain: "Cells that help blood clot." },
+            { label: "Glucose", value: 92, unit: "mg/dL", low: 70, high: 99, plain: "Blood sugar." },
+            { label: "Creatinine", value: 0.78, unit: "mg/dL", low: 0.57, high: 1.0, plain: "A waste product your kidneys clear." },
+            { label: "ALT", value: 18, unit: "U/L", low: 7, high: 35, plain: "A liver enzyme." },
+            { label: "Calcium", value: 9.4, unit: "mg/dL", low: 8.6, high: 10.3, plain: "A mineral your body keeps in balance." },
+          ],
+        },
+      ],
     },
   };
 }

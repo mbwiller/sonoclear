@@ -8,7 +8,8 @@ import type { ISODate } from "./types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function startOfDay(d: Date): Date {
+/** Midnight at the start of the given day, local time. */
+export function startOfDay(d: Date): Date {
   const copy = new Date(d);
   copy.setHours(0, 0, 0, 0);
   return copy;
@@ -160,10 +161,7 @@ const PAST_ANCHORS = [-32, -25, -19, -14];
 const FUTURE_ANCHORS = [3];
 
 function isWeekday(base: Date, offset: number): boolean {
-  const d = new Date(base);
-  d.setDate(d.getDate() + offset);
-  const dow = d.getDay();
-  return dow >= 1 && dow <= 5;
+  return isWeekdayDate(day(offset, 12, 0, base));
 }
 
 function weekdayShift(base: Date, anchors: number[], candidates: number[]): number {
@@ -182,3 +180,40 @@ export function calendar(base: Date) {
   };
 }
 export type Calendar = ReturnType<typeof calendar>;
+
+/** The same day as `iso`, at the given local time. */
+export function atTime(iso: ISODate, hours: number, minutes = 0): ISODate {
+  const d = new Date(iso);
+  d.setHours(hours, minutes, 0, 0);
+  return d.toISOString();
+}
+
+/** True when `iso` falls on Monday to Friday, local time. */
+export function isWeekdayDate(iso: ISODate): boolean {
+  const dow = new Date(iso).getDay();
+  return dow >= 1 && dow <= 5;
+}
+
+/**
+ * The first weekday on or after `offset` days from today (as `cal.day` counts them), at the given local time,
+ * so a booking or a "call by" date never lands on a weekend.
+ */
+export function weekdayOnOrAfterAt(cal: Calendar, offset: number, hours = 9, minutes = 0): ISODate {
+  let o = offset;
+  while (!isWeekdayDate(cal.day(o))) o += 1;
+  return cal.day(o, hours, minutes);
+}
+
+/** `weekdayOnOrAfterAt` at the default 9:00 AM. */
+export function weekdayOnOrAfter(cal: Calendar, offset: number): ISODate {
+  return weekdayOnOrAfterAt(cal, offset);
+}
+
+/** The first weekday on or after `days` days past the date `from`, at the given local time. */
+export function weekdayAfterDate(from: ISODate, days: number, hours = 9, minutes = 0): ISODate {
+  const d = new Date(from);
+  d.setDate(d.getDate() + days);
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+  d.setHours(hours, minutes, 0, 0);
+  return d.toISOString();
+}

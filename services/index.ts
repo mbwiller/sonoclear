@@ -8,11 +8,13 @@ import { FixtureRecordInterpreter } from "./mock/fixture-record-interpreter";
 import { FixtureVisitSummarizer } from "./mock/fixture-summarizer";
 import { transcriptFixtureFor } from "./mock/fixture-transcripts";
 import { ScriptedChatProvider } from "./mock/scripted-chat";
+import { ScriptedSchedulingAgent } from "./mock/scripted-scheduling";
 import { ScriptedTranscriptionProvider } from "./mock/scripted-transcription";
 import type {
   ChatProvider,
   PatientDataSource,
   RecordInterpreter,
+  SchedulingAgent,
   TranscriptionProvider,
   VisitSummarizer,
 } from "./types";
@@ -23,6 +25,7 @@ export interface Services {
   summarizer: VisitSummarizer;
   recordInterpreter: RecordInterpreter;
   chat: ChatProvider;
+  scheduling: SchedulingAgent;
 }
 
 export const services: Services = {
@@ -34,6 +37,9 @@ export const services: Services = {
   summarizer: new FixtureVisitSummarizer(),
   recordInterpreter: new FixtureRecordInterpreter(),
   chat: new ScriptedChatProvider(),
+  scheduling: new ScriptedSchedulingAgent({
+    pace: () => (useDemoStore.getState().replaySpeed === "fast" ? 0.25 : 1),
+  }),
 };
 
 export type * from "./types";
